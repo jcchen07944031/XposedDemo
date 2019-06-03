@@ -1,25 +1,15 @@
 package com.wrbug.xposeddemo;
 
-import android.app.Activity;
-import android.content.res.Resources;
-import android.content.res.XResources;
-import android.os.Bundle;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.TextView;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
+import android.util.Log;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import java.util.List;
 
-import de.robv.android.xposed.IXposedHookInitPackageResources;
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XC_MethodReplacement;
-import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
-import de.robv.android.xposed.callbacks.XC_InitPackageResources;
-import de.robv.android.xposed.callbacks.XC_LayoutInflated;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
 /**
@@ -29,35 +19,32 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
  * @since 2017/4/20
  */
 public class XposedInit implements IXposedHookLoadPackage {
-    private static String PACKAGE_NAME = "com.wrbug.xposeddemo";
-
     @Override
-    public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) {
-        if (lpparam.packageName.equals(PACKAGE_NAME)) {
-            try {
-                //获取class类
-                Class c = XposedHelpers.findClass("com.wrbug.xposeddemo.XposedTest", lpparam.classLoader);
-                //获取str字段
-                Field strField = XposedHelpers.findField(c, "str");
-                //可以省略setAccessible（true）XposedHelpers已经执行该操作
-                strField.setAccessible(true);
-                //打印str值，下同
-                XposedBridge.log(strField.get(null).toString());
-
-                //调用静态方法
-                XposedHelpers.callStaticMethod(c, "staticTest", "xposedInvoke");
-                XposedBridge.log(strField.get(null).toString());
-
-                //获取实例
-                Constructor constructor = XposedHelpers.findConstructorBestMatch(c);
-                constructor.setAccessible(true);
-                Object instance = constructor.newInstance();
-                XposedHelpers.callMethod(instance, "test");
-                XposedBridge.log(strField.get(null).toString());
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+    public void handleLoadPackage(final XC_LoadPackage.LoadPackageParam lpparam) throws Throwable {
+        if (lpparam.packageName.equals(BuildConfig.APPLICATION_ID)){
+            XposedHelpers.findAndHookMethod(MainActivity.class.getName(), lpparam.classLoader, "isActive", XC_MethodReplacement.returnConstant(true));
         }
 
+        Log.i("PackageName", lpparam.packageName);
+
+        if (lpparam.packageName.equals("com.habby.archero")) {
+            XposedHelpers.findAndHookMethod("android.app.ApplicationPackageManager", lpparam.classLoader, "getInstalledApplications", int.class, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
+                    Log.i("PackageName", "Hook Success");
+                    List<ApplicationInfo> applicationInfos = (List<ApplicationInfo>) param.getResult();
+
+                    Log.i("PackageName", "Begin Print PackageName ********");
+                    for (ApplicationInfo applicationInfo:applicationInfos){
+                        Log.i("PackageName", "----" + applicationInfo.packageName + "----");
+                    }
+                    Log.i("PackageName", "End Print PackageName **********");
+
+                    param.setResult(applicationInfos);
+                }
+            });
+
+
+        }
     }
 }
